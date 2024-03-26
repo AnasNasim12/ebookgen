@@ -4,6 +4,9 @@ load_dotenv()
 import os
 import google.generativeai as genai
 import json
+import markdown
+from weasyprint import HTML
+
 
 genai.configure(api_key=os.getenv('GOOGLE_API_KEY'))
 model = genai.GenerativeModel("gemini-pro")
@@ -32,8 +35,22 @@ def outline_prompt(title, topic, target_audience, num_chapters, num_subsections)
 
         if isinstance(subtopics, dict):
             all_subtopics.extend(get_all_subtopics(subtopics))  # Recursive call for nested chapters
-            
-    print(all_subtopics)
 
-outline_prompt("The Art of War", "military strategy", "military leaders", 5, 4)
+    with open("contents.md", 'w') as file:
+       for chapter, subtopics in dictionary.items():
+          file.write(f"## {chapter}\n")  # Write chapter title with newline
+          for subtopic in subtopics:
+             file.write(f"- #### {subtopic}\n")  # Write subtopic with newline
 
+    return all_subtopics
+    # print(dictionary)
+outline_prompt("The 2nd World War", "Germany in 1945", "pre-school kids", 5, 2)
+
+def pdfmaker(markdown_file_path, pdf_file_path):
+    with open(markdown_file_path, 'r', encoding='utf-8') as md_file:
+        markdown_text = md_file.read()
+        html_text = markdown.markdown(markdown_text)
+        HTML(string=html_text).write_pdf(pdf_file_path)
+    print(f'PDF has been generated: {pdf_file_path}')
+
+pdfmaker("contents.md", "contents.pdf")
