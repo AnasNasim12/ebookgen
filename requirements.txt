@@ -1,0 +1,13 @@
+Pillow
+reportlab
+diffusers
+accelerate
+transformers
+google-generativeai
+markdown
+weasyprint
+PyPDF2
+peft
+torch
+python-dotenv
+streamlit
