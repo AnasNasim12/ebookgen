@@ -68,7 +68,7 @@ def outline_prompt(title, topic, target_audience, num_chapters, num_subsections)
         print("Chapter not found in the dictionary.")
 
 def pdfmaker(markdown_file_path, pdf_file_path):
-    with open(markdown_file_path, 'r', encoding='utf-8') as md_file:
+    with open(markdown_file_path, 'r', encoding='utf-8', errors='ignore') as md_file:
         markdown_text = md_file.read()
         html_text = markdown.markdown(markdown_text)
         HTML(string=html_text).write_pdf(pdf_file_path)
