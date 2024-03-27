@@ -140,11 +140,25 @@ def create_pdf_title_page(image_path, output_pdf, title):
 
     print(f"PDF saved as {output_pdf}")
 
+def get_user_input():
+    title = input("Enter the eBook title: ")
+    topic = input("Enter the eBook topic: ")
+    target_audience = input("Enter the target audience: ")
+    num_chapters = int(input("Enter the number of chapters: "))
+    num_subsections = int(input("Enter the number of subsections per chapter: "))
+    return title, topic, target_audience, num_chapters, num_subsections
 
-outline_prompt("The 2nd World War", "Germany in 1945", "pre-school kids", 5, 2)
-pdfmaker("contents.md", "contents.pdf")
-pdfmaker("ebook.md", "ebook.pdf")
-merge_pdfs('contents.pdf', 'ebook.pdf', 'merged_pdf.pdf')
-generate_and_save_image("The 2nd World War", "generated_pic.png")
-create_pdf_title_page('generated_pic.png', 'output_title_page.pdf', 'The 2nd World War')
-merge_pdfs('output_title_page.pdf', 'merged_pdf.pdf', 'deliverable.pdf')
+def main():
+    title, topic, target_audience, num_chapters, num_subsections = get_user_input()
+    
+    # Initialize the eBook generator with user inputs
+    outline_prompt(title, topic, target_audience, num_chapters, num_subsections)
+    pdfmaker("contents.md", "contents.pdf")
+    pdfmaker("ebook.md", "ebook.pdf")
+    merge_pdfs('contents.pdf', 'ebook.pdf', 'merged_pdf.pdf')
+    generate_and_save_image(title, "generated_pic.png")
+    create_pdf_title_page('generated_pic.png', 'output_title_page.pdf', title)
+    merge_pdfs('output_title_page.pdf', 'merged_pdf.pdf', 'deliverable.pdf')
+
+if __name__ == "__main__":
+    main()
