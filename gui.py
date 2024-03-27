@@ -1,5 +1,6 @@
 import streamlit as st
-
+import base64
+from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()
 from geminiconfig import safety_settings
@@ -27,14 +28,14 @@ def outline_prompt(title, topic, target_audience, num_chapters, num_subsections)
     f" {num_subsections} subsection(s)"
     f'Output format for prompt:'
     f'python dict with key: chapter title, value: a single list/array Please refrain from adding any unnecessary formatting elements like code blocks or indentation in the output.'
-    f'Containing subsection titles within the chapter (the subtopics should be inside the list)')
+    f'Containing subsection titles within the chapter with numbering (the subtopics should be inside the list)')
     response = model.generate_content(outlineprompt)
     # Parse the generated content as JSON
     try:
         dictionary = json.loads(response.text)
     except json.JSONDecodeError:
         print("Error: Could not decode JSON")
-        return None
+        return False
     
     all_subtopics = []
     for chapter, subtopics in dictionary.items():
@@ -47,7 +48,7 @@ def outline_prompt(title, topic, target_audience, num_chapters, num_subsections)
        for chapter, subtopics in dictionary.items():
           file.write(f"## {chapter}\n")  # Write chapter title with newline
           for subtopic in subtopics:
-             file.write(f"- #### {subtopic}\n")  # Write subtopic with newline
+             file.write(f"#### {subtopic}\n")  # Write subtopic with newline
 
     page_prompt = (f'We are writing an eBook called "{title}". It is about'
     f' "{topic}". Our reader is: {target_audience}".'
@@ -56,7 +57,7 @@ def outline_prompt(title, topic, target_audience, num_chapters, num_subsections)
     f'Detailed text, nuanced text, informative. Keep the output as long as possible. Make sure you follow proper markdown formatting for headings and such. In case of code snippets, keep proper markdown formatting'
     f'It is of utmost importance that the formatting is right!'
     f'Imagine you are writing a page for the book, your text should be written in a way that the target audience understands it with ease. Make sure that the content you generate is continuous and cohesive'
-    f'So in case you are writing a story, you must maintain continuity. Stories do not need a conclusion section.'
+    f'So in case you are writing a story, you must maintain continuity. Stories do not need a conclusion section. You must write out the topic name at the beginning of the page.'
     f'Topic is as follows:')
 
     all_text = ""
@@ -68,6 +69,8 @@ def outline_prompt(title, topic, target_audience, num_chapters, num_subsections)
             f.write(all_text)
     else:
         print("Chapter not found in the dictionary.")
+    
+    return True
 
 def pdfmaker(markdown_file_path, pdf_file_path):
     with open(markdown_file_path, 'r', encoding='utf-8', errors='ignore') as md_file:
@@ -142,32 +145,57 @@ def create_pdf_title_page(image_path, output_pdf, title):
 
     print(f"PDF saved as {output_pdf}")
 
+def cleanup(files):
+    for file_path in files:
+        try:
+            os.remove(file_path)
+            print(f"Deleted {file_path}")
+        except OSError as e:
+            print(f"Error: {file_path} : {e.strerror}")
+
+def generate_unique_filename(base_name, extension):
+    current_time = datetime.now().strftime("%Y%m%d%H%M%S")
+    return f"{base_name}_{current_time}.{extension}"
+
 def get_user_input():
     title = st.text_input("Enter the eBook title: ")
     topic = st.text_input("Enter the eBook topic: ")
     target_audience = st.text_input("Enter the target audience: ")
-    num_chapters = st.number_input("Enter the number of chapters: ", format="%d")
-    num_subsections = st.number_input("Enter the number of subsections per chapter: ", format="%d")
+    num_chapters = st.number_input("Enter the number of chapters: ")
+    num_subsections = st.number_input("Enter the number of subsections per chapter: ")
     return title, topic, target_audience, num_chapters, num_subsections
 
 def main():
     st.title("eBook Generator")
     
-    # Get user input outside the button press condition
     title, topic, target_audience, num_chapters, num_subsections = get_user_input()
     
     if st.button("Generate eBook"):
-        # Check if all fields have been filled in
         if title and topic and target_audience and num_chapters > 0 and num_subsections > 0:
-            # Initialize the eBook generator with user inputs
-            outline_prompt(title, topic, target_audience, num_chapters, num_subsections)
+            success = outline_prompt(title, topic, target_audience, num_chapters, num_subsections)
+            if not success:
+                st.error("Failed to generate the eBook outline. Please try again.")
+                return
+            
+            # Generate a unique filename for this run
+            final_ebook_filename = generate_unique_filename("final_eBook", "pdf")
+            
             pdfmaker("contents.md", "contents.pdf")
             pdfmaker("ebook.md", "ebook.pdf")
             merge_pdfs('contents.pdf', 'ebook.pdf', 'merged_pdf.pdf')
             generate_and_save_image(title, "generated_pic.png")
             create_pdf_title_page('generated_pic.png', 'output_title_page.pdf', title)
-            merge_pdfs('output_title_page.pdf', 'merged_pdf.pdf', 'final_eBook.pdf')
-            st.success("eBook generated successfully! Check your files for 'final_eBook.pdf'.")
+            merge_pdfs('output_title_page.pdf', 'merged_pdf.pdf', final_ebook_filename)
+            
+            with open(final_ebook_filename, 'rb') as pdf_file:
+                base64_pdf = base64.b64encode(pdf_file.read()).decode('utf-8')
+            pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="700" height="1000" type="application/pdf"></iframe>'
+            st.markdown(pdf_display, unsafe_allow_html=True)
+            st.download_button(label="Download eBook", data=open(final_ebook_filename, 'rb'), file_name=final_ebook_filename, mime='application/pdf')
+            st.success("eBook generated successfully!")
+            
+            # Cleanup intermediate files
+            cleanup(['contents.md', 'contents.pdf', 'ebook.md', 'ebook.pdf', 'merged_pdf.pdf', 'generated_pic.png', 'output_title_page.pdf'])
         else:
             st.error("Please fill in all the fields and ensure the number of chapters and subsections are greater than 0.")
 
